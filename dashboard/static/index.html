@@ -1,0 +1,537 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Grok Manager</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #121821;
+      --panel2: #182230;
+      --border: #243041;
+      --text: #e7eef8;
+      --muted: #8aa0b8;
+      --accent: #5b9dff;
+      --good: #3dd68c;
+      --warn: #f5c542;
+      --bad: #ff6b7a;
+      --chip: #1c2736;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: radial-gradient(1200px 600px at 10% -10%, #152033 0%, var(--bg) 55%);
+      color: var(--text);
+      min-height: 100vh;
+    }
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 16px 22px; border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; backdrop-filter: blur(10px);
+      background: rgba(11,15,20,.85); z-index: 10;
+    }
+    header h1 { font-size: 18px; margin: 0; letter-spacing: .3px; }
+    header .sub { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .wrap { max-width: 1280px; margin: 0 auto; padding: 18px; }
+    .grid { display: grid; gap: 14px; }
+    .cards { grid-template-columns: repeat(4, 1fr); }
+    @media (max-width: 980px) { .cards { grid-template-columns: repeat(2,1fr); } }
+    .card {
+      background: linear-gradient(180deg, var(--panel), var(--panel2));
+      border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px;
+    }
+    .card .label { color: var(--muted); font-size: 12px; }
+    .card .value { font-size: 28px; font-weight: 700; margin-top: 6px; }
+    .card .hint { color: var(--muted); font-size: 12px; margin-top: 4px; }
+    .good { color: var(--good); } .bad { color: var(--bad); } .warn { color: var(--warn); }
+    .row { display: flex; gap: 14px; flex-wrap: wrap; }
+    .col { flex: 1; min-width: 280px; }
+    h2 { font-size: 14px; margin: 0 0 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+    button, .btn {
+      appearance: none; border: 1px solid var(--border); background: #1a2433; color: var(--text);
+      border-radius: 10px; padding: 8px 12px; font-size: 13px; cursor: pointer;
+    }
+    button:hover { border-color: #3a516e; background: #203047; }
+    button.primary { background: #1d3b66; border-color: #2f5f9e; }
+    button.danger { background: #3a1d24; border-color: #6e2f3d; color: #ffd0d6; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    input, select {
+      background: #0f1620; border: 1px solid var(--border); color: var(--text);
+      border-radius: 10px; padding: 8px 10px; font-size: 13px; width: 100%;
+    }
+    label { display:block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .field { margin-bottom: 10px; }
+    .actions { display:flex; gap:8px; flex-wrap: wrap; align-items:end; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; }
+    tr:hover td { background: rgba(255,255,255,.02); }
+    .chip {
+      display:inline-block; padding: 2px 8px; border-radius: 999px; background: var(--chip);
+      border: 1px solid var(--border); font-size: 11px; color: var(--muted);
+    }
+    .chip.active { color: var(--good); border-color: #245c42; background: #123024; }
+    .chip.quota_exhausted, .chip.unavailable { color: var(--warn); border-color: #5c4b1f; background: #2a230f; }
+    .chip.no_token, .chip.token_invalid_revoked, .chip.sso_invalid, .chip.error { color: var(--bad); border-color: #5c2430; background: #2a1218; }
+    .toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 10px; align-items:center; }
+    .toolbar .spacer { flex:1; }
+    .log {
+      background: #0a1018; border: 1px solid var(--border); border-radius: 10px;
+      padding: 10px; height: 220px; overflow: auto; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px; white-space: pre-wrap; color: #c9d7e8;
+    }
+    .muted { color: var(--muted); }
+    .err { color: var(--bad); font-size: 12px; max-width: 360px; word-break: break-word; }
+    .toast {
+      position: fixed; right: 16px; bottom: 16px; background: #1a2738; border: 1px solid var(--border);
+      padding: 10px 14px; border-radius: 10px; display:none; z-index: 50; max-width: 420px;
+    }
+    .tabs { display:flex; gap:6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .tabs button.active { background: #1d3b66; border-color: #2f5f9e; }
+    .hidden { display:none !important; }
+    .checks { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+    .checks label { margin:0; display:flex; gap:6px; align-items:center; color: var(--text); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Grok Manager</h1>
+      <div class="sub">Register · Mint OAuth · Import 9Router · Cleanup</div>
+    </div>
+    <div class="actions">
+      <button id="btnRefresh">Refresh</button>
+      <button id="btnAuto" class="primary">Auto refresh: OFF</button>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <div class="grid cards" id="summaryCards"></div>
+
+    <div class="row" style="margin-top:14px">
+      <div class="col card">
+        <h2>Actions</h2>
+        <div class="field">
+          <label>Register akun baru (CLI)</label>
+          <div class="actions">
+            <input id="regCount" type="number" min="1" max="100" value="1" style="width:90px" />
+            <select id="regHideMode" style="width:150px" title="browser hide mode">
+              <option value="">hide: config default</option>
+              <option value="normal">normal (visible)</option>
+              <option value="minimize">minimize (hidden)</option>
+              <option value="xvfb">xvfb (virtual)</option>
+            </select>
+            <button class="primary" id="btnRegister">Start Register</button>
+          </div>
+          <div class="hint muted" style="margin-top:6px;font-size:12px">
+            Browser harus real Chromium (bukan headless murni). minimize/xvfb = disembunyiin tanpa headless.
+          </div>
+        </div>
+        <div class="field">
+          <label>Browser hide mode (config default)</label>
+          <div class="actions">
+            <select id="cfgHideMode" style="width:160px">
+              <option value="normal">normal</option>
+              <option value="minimize">minimize</option>
+              <option value="xvfb">xvfb</option>
+            </select>
+            <button id="btnSaveHideMode">Save default</button>
+            <span class="muted" id="cfgHideHint"></span>
+          </div>
+        </div>
+        <div class="field">
+          <label>Mint OAuth → push grok-cli (batch)</label>
+          <div class="actions">
+            <input id="mintLimit" type="number" min="1" max="100" value="5" style="width:90px" title="limit" />
+            <input id="mintSleep" type="number" min="0" step="1" value="15" style="width:90px" title="sleep sec" />
+            <label class="checks"><input type="checkbox" id="mintSaveCpa" /> save cpa_auths</label>
+            <button class="primary" id="btnMint">Start Mint</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Import</label>
+          <div class="actions">
+            <button id="btnImportCpa">Import CPA → grok-cli</button>
+            <button id="btnImportWeb">Import accounts SSO → grok-web</button>
+            <button id="btnImportScript">Run import_to_vps_db.py</button>
+          </div>
+        </div>
+        <div class="field">
+          <label>Probe status (unknown → active / quota / error)</label>
+          <div class="actions">
+            <select id="probeMode" style="width:160px" title="mode">
+              <option value="auto" selected>auto (unknown→inactive)</option>
+              <option value="unknown">unknown only</option>
+              <option value="inactive">all inactive</option>
+              <option value="all">all grok-cli</option>
+            </select>
+            <input id="probeLimit" type="number" min="1" max="200" value="20" style="width:90px" title="limit" />
+            <input id="probeSleep" type="number" min="0" step="0.5" value="1.5" style="width:90px" title="sleep sec" />
+            <label class="checks"><input type="checkbox" id="probeLive" checked /> live (deteksi kuota)</label>
+            <button class="primary" id="btnProbe">Start Probe</button>
+            <button id="btnProbeSelected">Probe selected</button>
+          </div>
+          <div class="hint muted" style="margin-top:6px;font-size:12px">
+            live = refresh token + GET /v1/models ke xAI (bisa deteksi free-usage-exhausted).
+            Off = cuma test 9router (sering cuma cek token ada).
+          </div>
+        </div>
+        <div class="field">
+          <label>Cleanup cepat</label>
+          <div class="actions">
+            <button class="danger" id="btnDelWebAll">Hapus SEMUA grok-web</button>
+            <button class="danger" id="btnDelCliInactive">Hapus grok-cli gak aktif</button>
+            <button class="danger" id="btnDelCliQuota">Hapus grok-cli quota abis</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="col card">
+        <h2>Job log</h2>
+        <div class="toolbar">
+          <select id="jobSelect" style="max-width:280px"></select>
+          <button id="btnJobRefresh">Reload job</button>
+          <button class="danger" id="btnJobCancel">Cancel</button>
+          <span class="spacer"></span>
+          <span class="muted" id="jobMeta">no job</span>
+        </div>
+        <div class="log" id="jobLog">Belum ada job.</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:14px">
+      <div class="toolbar">
+        <div class="tabs" id="tabs">
+          <button data-tab="cli" class="active">grok-cli</button>
+          <button data-tab="web">grok-web</button>
+          <button data-tab="accounts">accounts files</button>
+          <button data-tab="cpa">cpa_auths</button>
+          <button data-tab="failed">cpa failed</button>
+        </div>
+        <span class="spacer"></span>
+        <select id="bucketFilter" style="width:180px">
+          <option value="">all buckets</option>
+          <option value="active">active</option>
+          <option value="quota_exhausted">quota_exhausted</option>
+          <option value="unavailable">unavailable</option>
+          <option value="unknown">unknown</option>
+          <option value="no_token">no_token</option>
+          <option value="token_invalid_revoked">token_invalid_revoked</option>
+          <option value="sso_invalid">sso_invalid</option>
+          <option value="error">error</option>
+        </select>
+        <button id="btnSelectVisible">Select visible</button>
+        <button class="danger" id="btnDeleteSelected">Delete selected</button>
+      </div>
+      <div id="tableArea"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    const state = {
+      tab: 'cli',
+      connections: [],
+      auto: false,
+      autoTimer: null,
+      currentJobId: null,
+      jobPoll: null,
+    };
+
+    function $(id){ return document.getElementById(id); }
+    function toast(msg, ms=3200){
+      const t = $('toast'); t.textContent = msg; t.style.display='block';
+      clearTimeout(t._tm); t._tm = setTimeout(()=> t.style.display='none', ms);
+    }
+    async function api(path, opts={}){
+      const res = await fetch(path, {
+        headers: { 'Content-Type': 'application/json', ...(opts.headers||{}) },
+        ...opts,
+      });
+      const text = await res.text();
+      let data;
+      try { data = text ? JSON.parse(text) : {}; }
+      catch { data = { raw: text }; }
+      if(!res.ok) throw new Error(data.detail || data.error || res.statusText || 'request failed');
+      return data;
+    }
+
+    function card(label, value, hint='', cls=''){
+      return `<div class="card"><div class="label">${label}</div><div class="value ${cls}">${value}</div><div class="hint">${hint}</div></div>`;
+    }
+
+    function renderSummary(st){
+      const nr = st.nine_router || {};
+      const p = nr.providers || {};
+      const cli = p['grok-cli'] || {total:0,active:0,inactive:0};
+      const web = p['grok-web'] || {total:0,active:0,inactive:0};
+      const local = st.local || {};
+      $('summaryCards').innerHTML = [
+        card('grok-cli active', cli.active, `total ${cli.total} · inactive ${cli.inactive}`, 'good'),
+        card('grok-cli inactive', cli.inactive, Object.entries(cli.buckets||{}).filter(([k])=>k!=='active').map(([k,v])=>`${k}:${v}`).join(' · ') || '—', cli.inactive? 'warn':'muted'),
+        card('grok-web', web.total, `active ${web.active}`, web.total? 'warn':'muted'),
+        card('local CPA / accounts', `${local.cpa_auth_count||0} / ${local.latest_accounts_count||0}`,
+          `file ${local.latest_accounts_file||'—'} · missing CPA ${local.latest_missing_cpa||0}`),
+      ].join('');
+    }
+
+    function chip(bucket){
+      return `<span class="chip ${bucket}">${bucket}</span>`;
+    }
+
+    function renderConnections(){
+      const bucket = $('bucketFilter').value;
+      let rows = state.connections.filter(r => r.provider === (state.tab === 'web' ? 'grok-web' : 'grok-cli'));
+      if(bucket) rows = rows.filter(r => r.bucket === bucket);
+      if(!rows.length){
+        $('tableArea').innerHTML = `<p class="muted">Tidak ada data.</p>`;
+        return;
+      }
+      const body = rows.map(r => `
+        <tr>
+          <td><input type="checkbox" class="rowchk" value="${r.id}" /></td>
+          <td>${esc(r.email || r.name || '')}</td>
+          <td>${chip(r.bucket)}</td>
+          <td class="muted">${esc(r.testStatus||'')}</td>
+          <td class="err">${esc(r.lastError||'')}</td>
+          <td class="muted">${esc((r.updatedAt||'').slice(0,19))}</td>
+        </tr>`).join('');
+      $('tableArea').innerHTML = `
+        <table>
+          <thead><tr>
+            <th style="width:36px"></th><th>Email</th><th>Bucket</th><th>Status</th><th>Error</th><th>Updated</th>
+          </tr></thead>
+          <tbody>${body}</tbody>
+        </table>`;
+    }
+
+    function renderAccounts(items, path){
+      $('tableArea').innerHTML = `
+        <p class="muted">File: ${esc(path||'—')} · ${items.length} akun</p>
+        <table><thead><tr><th>Email</th><th>Password</th><th>SSO</th></tr></thead>
+        <tbody>${items.map(a=>`<tr><td>${esc(a.email)}</td><td>${a.has_password?'✓':'-'}</td><td class="muted">${esc(a.sso_preview|| (a.has_sso?'✓':'-'))}</td></tr>`).join('')}</tbody></table>`;
+    }
+
+    function renderCpa(items){
+      $('tableArea').innerHTML = `
+        <table><thead><tr><th>Email</th><th>Tokens</th><th>Expired</th><th>File</th></tr></thead>
+        <tbody>${items.map(a=>`<tr><td>${esc(a.email||'')}</td><td>${a.has_tokens?'✓':'-'}</td><td class="muted">${esc(a.expired||'')}</td><td class="muted">${esc(a.name||'')}</td></tr>`).join('') || '<tr><td colspan=4 class="muted">kosong</td></tr>'}</tbody></table>`;
+    }
+
+    function renderFailed(items){
+      $('tableArea').innerHTML = `
+        <table><thead><tr><th>Email</th><th>Error</th><th>TS</th></tr></thead>
+        <tbody>${items.map(a=>`<tr><td>${esc(a.email||'')}</td><td class="err">${esc(a.error||'')}</td><td class="muted">${esc(a.ts||'')}</td></tr>`).join('') || '<tr><td colspan=3 class="muted">kosong</td></tr>'}</tbody></table>`;
+    }
+
+    function esc(s){
+      return String(s??'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    async function refresh(){
+      try {
+        const st = await api('/api/status');
+        renderSummary(st);
+        const jobsList = st.jobs || [];
+        const sel = $('jobSelect');
+        const cur = sel.value;
+        sel.innerHTML = jobsList.map(j => `<option value="${j.id}">${j.kind} · ${j.status} · ${j.id}</option>`).join('') || '<option value="">no jobs</option>';
+        if(cur) sel.value = cur;
+        if(state.currentJobId) sel.value = state.currentJobId;
+
+        if(state.tab === 'cli' || state.tab === 'web'){
+          const prov = state.tab === 'web' ? 'grok-web' : 'grok-cli';
+          const data = await api('/api/connections?provider=' + prov);
+          state.connections = data.items || [];
+          renderConnections();
+        } else if(state.tab === 'accounts'){
+          const data = await api('/api/accounts');
+          renderAccounts(data.items||[], data.path);
+        } else if(state.tab === 'cpa'){
+          const data = await api('/api/cpa');
+          renderCpa(data.items||[]);
+        } else if(state.tab === 'failed'){
+          const data = await api('/api/cpa/failed?limit=80');
+          renderFailed(data.items||[]);
+        }
+      } catch(e){
+        toast('Refresh gagal: ' + e.message);
+      }
+    }
+
+    async function loadJob(id){
+      if(!id) return;
+      state.currentJobId = id;
+      try {
+        const j = await api(`/api/jobs/${id}?logs=true&tail=400`);
+        $('jobMeta').textContent = `${j.kind} · ${j.status}` + (j.returncode!=null?` · exit ${j.returncode}`:'');
+        $('jobLog').textContent = (j.logs||[]).join('\n') || '(no logs)';
+        $('jobLog').scrollTop = $('jobLog').scrollHeight;
+        if(j.status === 'running' || j.status === 'queued'){
+          if(!state.jobPoll) state.jobPoll = setInterval(()=> loadJob(state.currentJobId), 2000);
+        } else if(state.jobPoll){
+          clearInterval(state.jobPoll); state.jobPoll=null;
+          refresh();
+        }
+      } catch(e){ toast(e.message); }
+    }
+
+    // tabs
+    document.querySelectorAll('#tabs button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        document.querySelectorAll('#tabs button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        state.tab = btn.dataset.tab;
+        refresh();
+      });
+    });
+
+    $('btnRefresh').onclick = refresh;
+    $('bucketFilter').onchange = ()=> renderConnections();
+    $('btnSelectVisible').onclick = ()=>{
+      document.querySelectorAll('.rowchk').forEach(c => c.checked = true);
+    };
+    $('btnDeleteSelected').onclick = async ()=>{
+      const ids = [...document.querySelectorAll('.rowchk:checked')].map(c=>c.value);
+      if(!ids.length) return toast('Pilih dulu');
+      if(!confirm(`Hapus ${ids.length} koneksi?`)) return;
+      try {
+        const r = await api('/api/connections/delete', { method:'POST', body: JSON.stringify({ids}) });
+        toast(`Deleted ${r.deleted}`);
+        refresh();
+      } catch(e){ toast(e.message); }
+    };
+
+    $('btnDelWebAll').onclick = async ()=>{
+      if(!confirm('Hapus SEMUA grok-web?')) return;
+      try {
+        const r = await api('/api/connections/delete-filter', { method:'POST', body: JSON.stringify({provider:'grok-web', all_provider:true}) });
+        toast(`Deleted grok-web: ${r.deleted}`); refresh();
+      } catch(e){ toast(e.message); }
+    };
+    $('btnDelCliInactive').onclick = async ()=>{
+      if(!confirm('Hapus semua grok-cli yang BUKAN active?')) return;
+      try {
+        const r = await api('/api/connections/delete-filter', { method:'POST', body: JSON.stringify({provider:'grok-cli', inactive_only:true}) });
+        toast(`Deleted inactive grok-cli: ${r.deleted}`); refresh();
+      } catch(e){ toast(e.message); }
+    };
+    $('btnDelCliQuota').onclick = async ()=>{
+      if(!confirm('Hapus grok-cli quota_exhausted?')) return;
+      try {
+        const r = await api('/api/connections/delete-filter', { method:'POST', body: JSON.stringify({provider:'grok-cli', buckets:['quota_exhausted']}) });
+        toast(`Deleted quota: ${r.deleted}`); refresh();
+      } catch(e){ toast(e.message); }
+    };
+
+    $('btnRegister').onclick = async ()=>{
+      const count = Number($('regCount').value||1);
+      const hide = ($('regHideMode').value || '').trim();
+      const payload = {count};
+      if(hide) payload.browser_hide_mode = hide;
+      try {
+        const r = await api('/api/jobs/register', { method:'POST', body: JSON.stringify(payload) });
+        state.currentJobId = r.job.id; toast('Register job started: '+r.job.id); loadJob(r.job.id); refresh();
+      } catch(e){ toast(e.message); }
+    };
+
+    async function loadConfigHide(){
+      try {
+        const r = await api('/api/config');
+        const mode = (r.config && r.config.browser_hide_mode) || 'normal';
+        if($('cfgHideMode')) $('cfgHideMode').value = mode;
+        if($('cfgHideHint')) $('cfgHideHint').textContent = 'current: ' + mode;
+      } catch(e){ /* ignore */ }
+    }
+    $('btnSaveHideMode').onclick = async ()=>{
+      const mode = $('cfgHideMode').value || 'normal';
+      try {
+        const r = await api('/api/config', { method:'PATCH', body: JSON.stringify({ browser_hide_mode: mode }) });
+        toast('Saved browser_hide_mode=' + ((r.config||{}).browser_hide_mode || mode));
+        loadConfigHide();
+      } catch(e){ toast(e.message); }
+    };
+    loadConfigHide();
+    $('btnMint').onclick = async ()=>{
+      const body = {
+        limit: Number($('mintLimit').value||5),
+        sleep: Number($('mintSleep').value||15),
+        save_cpa: $('mintSaveCpa').checked,
+      };
+      try {
+        const r = await api('/api/jobs/mint', { method:'POST', body: JSON.stringify(body) });
+        state.currentJobId = r.job.id; toast('Mint job started: '+r.job.id); loadJob(r.job.id); refresh();
+      } catch(e){ toast(e.message); }
+    };
+    $('btnImportCpa').onclick = async ()=>{
+      try {
+        const r = await api('/api/import/cpa', { method:'POST', body: JSON.stringify({}) });
+        toast(`CPA import: +${r.inserted} ~${r.updated} fail ${r.failed}`); refresh();
+      } catch(e){ toast(e.message); }
+    };
+    $('btnImportWeb').onclick = async ()=>{
+      try {
+        const r = await api('/api/import/accounts-web', { method:'POST', body: JSON.stringify({}) });
+        toast(`Web import: +${r.inserted} ~${r.updated} skip ${r.skipped}`); refresh();
+      } catch(e){ toast(e.message); }
+    };
+    $('btnImportScript').onclick = async ()=>{
+      try {
+        const r = await api('/api/jobs/import-cpa-script', { method:'POST', body: '{}' });
+        state.currentJobId = r.job.id; toast('import script job: '+r.job.id); loadJob(r.job.id); refresh();
+      } catch(e){ toast(e.message); }
+    };
+
+    async function startProbe(extra={}){
+      const body = {
+        provider: 'grok-cli',
+        mode: extra.mode || $('probeMode').value || 'auto',
+        live: $('probeLive').checked,
+        sleep: Number($('probeSleep').value || 1.5),
+        limit: $('probeLimit').value ? Number($('probeLimit').value) : null,
+        ...extra,
+      };
+      if(body.mode === 'ids' && (!body.ids || !body.ids.length)){
+        toast('Pilih koneksi dulu'); return;
+      }
+      try {
+        const r = await api('/api/jobs/probe', { method:'POST', body: JSON.stringify(body) });
+        state.currentJobId = r.job.id;
+        toast('Probe job: ' + r.job.id);
+        loadJob(r.job.id);
+        refresh();
+      } catch(e){ toast(e.message); }
+    }
+    $('btnProbe').onclick = ()=> startProbe({});
+    $('btnProbeSelected').onclick = ()=>{
+      const ids = [...document.querySelectorAll('.rowchk:checked')].map(c=>c.value);
+      if(!ids.length){ toast('Pilih baris di tabel dulu'); return; }
+      startProbe({ mode:'ids', ids, limit: null });
+    };
+
+    $('jobSelect').onchange = (e)=> loadJob(e.target.value);
+    $('btnJobRefresh').onclick = ()=> loadJob($('jobSelect').value || state.currentJobId);
+    $('btnJobCancel').onclick = async ()=>{
+      const id = $('jobSelect').value || state.currentJobId;
+      if(!id) return;
+      try { await api(`/api/jobs/${id}/cancel`, {method:'POST', body:'{}'}); toast('cancel sent'); loadJob(id); }
+      catch(e){ toast(e.message); }
+    };
+
+    $('btnAuto').onclick = ()=>{
+      state.auto = !state.auto;
+      $('btnAuto').textContent = 'Auto refresh: ' + (state.auto?'ON':'OFF');
+      if(state.auto){
+        state.autoTimer = setInterval(refresh, 5000);
+      } else if(state.autoTimer){
+        clearInterval(state.autoTimer); state.autoTimer=null;
+      }
+    };
+
+    refresh();
+  </script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+name = "temp-mail-worker"
+main = "worker.js"
+compatibility_date = "2024-12-01"
+
+# ── D1 Database ──────────────────────────────────────────────────────────────
+# Replace database_id with your D1 database ID (from `wrangler d1 create temp-mail-db`)
+[[d1_databases]]
+binding = "DB"
+database_name = "temp-mail-db"
+database_id = "<YOUR_D1_DATABASE_ID>"
+
+# ── Environment Variables ────────────────────────────────────────────────────
+# Configure via dashboard: Workers > temp-mail-worker > Settings > Variables and Secrets
+# Or configure via wrangler secrets:
+#   wrangler secret put JWT_SECRET
+#   wrangler secret put ADMIN_KEY
+#
+# [vars]
+# DOMAINS = "yourdomain.com"
+# JWT_SECRET = "replace-with-a-secure-random-secret"
+# ADMIN_KEY = "replace-with-your-admin-key"
